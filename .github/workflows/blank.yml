@@ -1,0 +1,49 @@
+name: Build JAR with Java 25
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Java 25 einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: ZIP entpacken (falls Projekt in ZIP liegt)
+        run: |
+          # Passe den Dateinamen an, falls deine ZIP anders heißt
+          if [ -f "mod.zip" ]; then
+            mkdir -p mod_src
+            unzip -o mod.zip -d mod_src
+          fi
+
+      - name: Gradle-Rechte setzen und JAR bauen
+        run: |
+          WORKDIR="."
+          if [ -d "mod_src" ]; then
+            # Falls ein Unterordner mit gradlew existiert, dorthin wechseln
+            SUBDIR=$(find mod_src -maxdepth 2 -name "gradlew" -printf '%h\n' | head -n 1)
+            WORKDIR="${SUBDIR:-mod_src}"
+          fi
+          cd "$WORKDIR"
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+
+      - name: Gebaute JAR als Artifact hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-mod-jar
+          path: "**/build/libs/*.jar"
